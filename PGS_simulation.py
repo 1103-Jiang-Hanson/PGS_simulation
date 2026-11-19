@@ -78,34 +78,45 @@ def make_advanced_pgs_model(biobank, n_genes, n_people):
 
 
 def run_simple_pgs_model(correlations, biobank, n_genes, n_people):
-    """Run a simple PGS model using the correlations plus a mean-condition bias."""
-    predictions = []
+    """Return continuous simple-model risk scores using correlations plus mean-condition bias."""
+    scores = []
     mean_condition = numpy.mean([person[1] for person in biobank]) if biobank else 0.0
 
     for i in range(n_people):
         predicted_risk = mean_condition + sum(correlations[j] * biobank[i][0][j] for j in range(n_genes))
-        predicted_condition = int(predicted_risk > 0.5)
-        predictions.append(predicted_condition)
+        scores.append(predicted_risk)
 
-    return predictions
+    return scores
 
 def run_advanced_pgs_model(coefficients, intercept, biobank, n_genes, n_people):
-    """Run an advanced PGS model using the linear regression coefficients to predict conditions."""
-    predictions = []
+    """Return continuous advanced-model risk scores from linear regression."""
+    scores = []
     for i in range(n_people):
         predicted_risk = intercept + sum(coefficients[j] * biobank[i][0][j] for j in range(n_genes))
-        predicted_condition = int(predicted_risk > 0.5)  # Simple thresholding
-        predictions.append(predicted_condition)
+        scores.append(predicted_risk)
 
-    return predictions
+    return scores
 
-def evaluate_model(predictions, biobank):
-    """Evaluate the model's predictions against the actual conditions in the biobank."""
-    true_conditions = [person[1] for person in biobank]
-    correct_predictions = sum(1 for pred, true in zip(predictions, true_conditions) if pred == true)
-    accuracy = correct_predictions / len(true_conditions) if true_conditions else 0
+def evaluate_model(scores, biobank):
+    """Calculate ROC AUC from continuous model scores and true conditions."""
+    scores = numpy.asarray(scores, dtype=float)
+    true_conditions = numpy.asarray([person[1] for person in biobank], dtype=int)
 
-    return accuracy
+    positive_scores = scores[true_conditions == 1]
+    negative_scores = scores[true_conditions == 0]
+
+    if len(positive_scores) == 0 or len(negative_scores) == 0:
+        return float("nan")
+
+    auc = 0.0
+    for positive_score in positive_scores:
+        for negative_score in negative_scores:
+            if positive_score > negative_score:
+                auc += 1.0
+            elif positive_score == negative_score:
+                auc += 0.5
+
+    return auc / (len(positive_scores) * len(negative_scores))
 
 def compare_models(biobank, n_genes, n_people):
     """Compare the simple and advanced PGS models in a readable summary."""
@@ -115,14 +126,14 @@ def compare_models(biobank, n_genes, n_people):
     simple_predictions = run_simple_pgs_model(correlations, biobank, n_genes, n_people)
     advanced_predictions = run_advanced_pgs_model(coefficients, intercept, biobank, n_genes, n_people)
 
-    simple_accuracy = evaluate_model(simple_predictions, biobank)
-    advanced_accuracy = evaluate_model(advanced_predictions, biobank)
+    simple_auc = evaluate_model(simple_predictions, biobank)
+    advanced_auc = evaluate_model(advanced_predictions, biobank)
 
     return (
         "\n\n\n\n\nSimple model\n"
-        f"  Accuracy: {simple_accuracy:.2%}\n\n"
+        f"  AUC: {simple_auc:.3f}\n\n"
         "Advanced model\n"
-        f"  Accuracy: {advanced_accuracy:.2%}"
+        f"  AUC: {advanced_auc:.3f}"
     )
 
 def run_simulation(n_genes, allele_frequencies, epistasis_influence, linear_influence, n_people):
