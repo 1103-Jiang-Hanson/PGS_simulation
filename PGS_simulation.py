@@ -4,16 +4,29 @@ import numpy
 def logistic(x):
     return 1 / (1 + numpy.exp(-x))
 
-def create_genotype(n_genes: int, allele_frequencies: list, epistasis_influence: list, linear_influence: list) -> tuple:
+def create_genotype(n_genes: int, allele_frequencies: list, epistasis_influence: list, linear_influence: list, linkage_strength: float = 0.0) -> tuple:
 
-    '''allele_frequencies and linear_influence are int lists, length n_genes. epistasis_influence is an int 2x2 array, n_genes by n_genes.'''
+    """Create one person.
+
+    allele_frequencies and linear_influence are lists of length n_genes.
+    epistasis_influence is an n_genes by n_genes matrix.
+    linkage_strength ranges from 0 (independent genes) to 1 (strongly linked genes).
+    """
+
+    if not 0.0 <= linkage_strength <= 1.0:
+        raise ValueError("linkage_strength must be between 0 and 1")
 
     genes = []
+    shared_linkage = random.random()
 
     for i in range(n_genes):
         allele_count = 0
         for j in range(2):
-            if random.random() < allele_frequencies[i]:
+            linked_probability = (
+                (1 - linkage_strength) * allele_frequencies[i]
+                + linkage_strength * shared_linkage
+            )
+            if random.random() < linked_probability:
                 allele_count += 1
 
         genes.append(allele_count)
@@ -31,11 +44,11 @@ def create_genotype(n_genes: int, allele_frequencies: list, epistasis_influence:
 
     return (genes, condition)
 
-def create_biobank(n_genes: int, allele_frequencies: list, epistasis_influence: list, linear_influence: list, n_people: int):
+def create_biobank(n_genes: int, allele_frequencies: list, epistasis_influence: list, linear_influence: list, n_people: int, linkage_strength: float = 0.0):
     people = []
 
     for i in range(n_people):
-        people.append(create_genotype(n_genes, allele_frequencies, epistasis_influence, linear_influence))
+        people.append(create_genotype(n_genes, allele_frequencies, epistasis_influence, linear_influence, linkage_strength))
 
     return people
 
@@ -136,9 +149,9 @@ def compare_models(biobank, n_genes, n_people):
         f"  AUC: {advanced_auc:.3f}"
     )
 
-def run_simulation(n_genes, allele_frequencies, epistasis_influence, linear_influence, n_people):
+def run_simulation(n_genes, allele_frequencies, epistasis_influence, linear_influence, n_people, linkage_strength=0.0):
     """Run the entire simulation and return the comparison of models."""
-    biobank = create_biobank(n_genes, allele_frequencies, epistasis_influence, linear_influence, n_people)
+    biobank = create_biobank(n_genes, allele_frequencies, epistasis_influence, linear_influence, n_people, linkage_strength)
     model_comparison = compare_models(biobank, n_genes, n_people)
 
     return model_comparison
@@ -149,6 +162,7 @@ if __name__ == "__main__":
     epistasis_influence = [[random.uniform(-1, 1) for j in range(n_genes)] for i in range(n_genes)]
     linear_influence = [random.uniform(-1, 1) for i in range(n_genes)]
     n_people = int(input("Enter the number of people in the biobank: "))
+    linkage_strength = float(input("Enter gene-linkage strength from 0 to 1: "))
 
     print("Running simulation...")
-    print(run_simulation(n_genes, allele_frequencies, epistasis_influence, linear_influence, n_people))
+    print(run_simulation(n_genes, allele_frequencies, epistasis_influence, linear_influence, n_people, linkage_strength))
