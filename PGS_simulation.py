@@ -10,11 +10,11 @@ def create_genotype(n_genes: int, allele_frequencies: list, epistasis_influence:
 
     allele_frequencies and linear_influence are lists of length n_genes.
     epistasis_influence is an n_genes by n_genes matrix.
-    linkage_strength ranges from 0 (independent genes) to 1 (strongly linked genes).
+    linkage_strength ranges from -1 (strong negative linkage) through 0 (independent) to 1 (strong positive linkage).
     """
 
-    if not 0.0 <= linkage_strength <= 1.0:
-        raise ValueError("linkage_strength must be between 0 and 1")
+    if not -1.0 <= linkage_strength <= 1.0:
+        raise ValueError("linkage_strength must be between -1 and 1")
 
     genes = []
     shared_linkage = random.random()
@@ -22,10 +22,17 @@ def create_genotype(n_genes: int, allele_frequencies: list, epistasis_influence:
     for i in range(n_genes):
         allele_count = 0
         for j in range(2):
-            linked_probability = (
-                (1 - linkage_strength) * allele_frequencies[i]
-                + linkage_strength * shared_linkage
-            )
+            if linkage_strength >= 0:
+                linked_probability = (
+                    (1 - linkage_strength) * allele_frequencies[i]
+                    + linkage_strength * shared_linkage
+                )
+            else:
+                anti_linkage = shared_linkage if i % 2 == 1 else 1 - shared_linkage
+                linked_probability = (
+                    (1 + linkage_strength) * allele_frequencies[i]
+                    + (-linkage_strength) * anti_linkage
+                )
             if random.random() < linked_probability:
                 allele_count += 1
 
@@ -162,7 +169,7 @@ if __name__ == "__main__":
     epistasis_influence = [[random.uniform(-1, 1) for j in range(n_genes)] for i in range(n_genes)]
     linear_influence = [random.uniform(-1, 1) for i in range(n_genes)]
     n_people = int(input("Enter the number of people in the biobank: "))
-    linkage_strength = float(input("Enter gene-linkage strength from 0 to 1: "))
+    linkage_strength = float(input("Enter gene-linkage strength from -1 to 1: "))
 
     print("Running simulation...")
     print(run_simulation(n_genes, allele_frequencies, epistasis_influence, linear_influence, n_people, linkage_strength))
